@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="color-scheme" content="light dark" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="レジ締め計算台紙" />
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+<meta name="theme-color" content="#121417" media="(prefers-color-scheme: dark)" />
+<link rel="icon" href="data:," />
+<title>レジ締め計算台紙（リンク版）</title>
+<style>
+  :root{
+    --bg:#ffffff;
+    --text:#17181a;
+    --sub:#6d6d74;
+    --green:#0b7a63;
+    --green-strong:#0b7a63;
+    --red:#d92d20;
+    --card:#f1f1f6;
+    --input-bg:#f1f1f6;
+    --input-border:#d7d7de;
+    --line:#e3e3e9;
+    --btn-bg:#f1f1f6;
+    --overlay:rgba(20,20,25,.45);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#121417;
+      --text:#f2f2f4;
+      --sub:#a7a7ae;
+      --green:#2fbf9f;
+      --green-strong:#2fbf9f;
+      --red:#ff6b5e;
+      --card:#1e2126;
+      --input-bg:#23262c;
+      --input-border:#3a3e46;
+      --line:#2c3038;
+      --btn-bg:#23262c;
+      --overlay:rgba(0,0,0,.6);
+    }
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0;background:var(--bg);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic UI",sans-serif;
+    font-variant-numeric:tabular-nums;
+  }
+  main{
+    max-width:640px;margin:0 auto;
+    padding:20px 18px calc(28px + env(safe-area-inset-bottom));
+  }
+  h1{font-size:26px;line-height:1.3;font-weight:800;margin:4px 0 6px;letter-spacing:.01em}
+  .subtitle{color:var(--sub);font-size:15px;line-height:1.5;margin:0 0 8px}
+  section{margin-top:26px}
+  h2{color:var(--green);font-size:20px;font-weight:800;margin:0 0 14px;line-height:1.4}
+
+  /* ---- tables ---- */
+  .thead,.trow{display:grid;align-items:center;column-gap:10px}
+  .thead{
+    color:var(--sub);font-size:13px;padding:0 0 8px;
+    border-bottom:2px solid var(--line);
+  }
+  .thead span{text-align:right}
+  .thead span:first-child{text-align:left}
+  .trow{padding:10px 0;border-bottom:1px solid var(--line)}
+  .denom{font-size:19px;font-weight:700;line-height:1.25;word-break:break-all}
+  .calc{text-align:right}
+  .calc .count{display:block;font-size:22px;font-weight:800;line-height:1.2}
+  .calc .amount{display:block;font-size:13px;color:var(--sub);margin-top:2px}
+  .carry{text-align:right;font-size:22px;font-weight:800;padding-right:2px}
+
+  .cols1{grid-template-columns:64px minmax(0,1fr) minmax(0,1fr) 62px}
+  .cols2{grid-template-columns:64px 44px minmax(0,1fr) 62px}
+
+  input[type="text"]{
+    width:100%;min-height:56px;
+    background:var(--input-bg);border:1px solid var(--input-border);
+    border-radius:10px;
+    font:inherit;font-size:19px;font-weight:600;color:var(--text);
+    text-align:center;padding:8px 6px;outline:none;
+    appearance:none;-webkit-appearance:none;
+  }
+  input[type="text"]:focus{border-color:var(--green);box-shadow:0 0 0 2px color-mix(in srgb, var(--green) 25%, transparent)}
+
+  /* ---- summary cards ---- */
+  .card{
+    background:var(--card);border-radius:14px;
+    padding:16px 18px;margin-top:16px;
+  }
+  .card .line{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:5px 0}
+  .card .line .k{font-size:17px}
+  .card .line .v{font-size:19px;font-weight:600;text-align:right;white-space:nowrap}
+  .card .line.total .k{font-size:21px;font-weight:800;color:var(--green-strong)}
+  .card .line.total .v{font-size:26px;font-weight:800;color:var(--green-strong)}
+  .card .line.judge .v{font-size:24px;font-weight:800;color:var(--green-strong)}
+  .card .line.judge.ng .k,.card .line.judge.ng .v{color:var(--red)}
+
+  /* ---- sections 3 & 4 simple rows ---- */
+  .srow{display:grid;grid-template-columns:76px minmax(0,1fr);align-items:center;column-gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
+  .srow .lab{font-size:19px;font-weight:700}
+  .srow input{text-align:right;padding-right:14px}
+
+  /* ---- clear button & confirm ---- */
+  .clear-btn{
+    width:100%;min-height:60px;margin-top:30px;
+    background:var(--btn-bg);color:var(--text);
+    border:1px solid var(--input-border);border-radius:12px;
+    font:inherit;font-size:17px;font-weight:600;cursor:pointer;
+  }
+  .clear-btn:active{opacity:.7}
+  .scrim{
+    position:fixed;inset:0;background:var(--overlay);
+    display:none;align-items:flex-end;justify-content:center;z-index:10;
+  }
+  .scrim.open{display:flex}
+  .sheet{
+    background:var(--bg);width:100%;max-width:640px;
+    border-radius:16px 16px 0 0;
+    padding:22px 20px calc(20px + env(safe-area-inset-bottom));
+  }
+  .sheet p{margin:0 0 18px;font-size:16px;line-height:1.6}
+  .sheet .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .sheet button{
+    min-height:52px;border-radius:10px;font:inherit;font-size:16px;font-weight:700;cursor:pointer;
+    border:1px solid var(--input-border);background:var(--btn-bg);color:var(--text);
+  }
+  .sheet button.danger{background:var(--red);border-color:var(--red);color:#fff}
+  @media (min-width:560px){
+    h1{font-size:30px}
+    .cols1{grid-template-columns:84px 1fr 1fr 76px}
+    .cols2{grid-template-columns:84px 56px 1fr 76px}
+    .denom{font-size:21px}
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>レジ締め計算台紙</h1>
+  <p class="subtitle">ふるいち1・2を合算 → 蔦屋に入金して蔦屋を締め</p>
+
+  <!-- ① -->
+  <section aria-labelledby="h1s">
+    <h2 id="h1s">① ふるいち1と2を合算</h2>
+    <div class="thead cols1" aria-hidden="true"><span>金種</span><span>ふるいち1</span><span>ふるいち2</span><span>1+2合算</span></div>
+    <div id="rows1"></div>
+    <div class="card">
+      <div class="line"><span class="k">ふるいち1 総額</span><span class="v" id="f1Total">0円</span></div>
+      <div class="line"><span class="k">ふるいち2 総額</span><span class="v" id="f2Total">0円</span></div>
+      <div class="line total"><span class="k">TB売上金</span><span class="v" id="tbTotal">0円</span></div>
+    </div>
+  </section>
+
+  <!-- ② -->
+  <section aria-labelledby="h2s">
+    <h2 id="h2s">② 蔦屋に入金して合算</h2>
+    <div class="thead cols2" aria-hidden="true"><span>金種</span><span>1+2合算</span><span>蔦屋</span><span>全体</span></div>
+    <div id="rows2"></div>
+    <div class="card">
+      <div class="line"><span class="k">TB売上金</span><span class="v" id="tbTotal2">0円</span></div>
+      <div class="line"><span class="k">蔦屋 総額（元から）</span><span class="v" id="tsuTotal">0円</span></div>
+      <div class="line total"><span class="k">蔦屋 入金後の総額</span><span class="v" id="afterTotal">0円</span></div>
+    </div>
+  </section>
+
+  <!-- ③ -->
+  <section aria-labelledby="h3s">
+    <h2 id="h3s">③ 蔦屋レジの入出金チェック</h2>
+    <div class="srow">
+      <label class="lab" for="nyukin">入金</label>
+      <input type="text" id="nyukin" inputmode="numeric" pattern="[0-9]*" autocomplete="off" aria-label="入金額（円）" />
+    </div>
+    <div class="srow">
+      <label class="lab" for="shukkin">出金</label>
+      <input type="text" id="shukkin" inputmode="numeric" pattern="[0-9]*" autocomplete="off" aria-label="出金額（円）" />
+    </div>
+    <div class="card">
+      <div class="line"><span class="k">差額（入金−出金）</span><span class="v" id="sagaku">0円</span></div>
+      <div class="line"><span class="k">TB売上金</span><span class="v" id="tbTotal3">0円</span></div>
+      <div class="line total judge" id="judgeLine"><span class="k">判定</span><span class="v" id="judge">―</span></div>
+    </div>
+  </section>
+
+  <!-- ④ -->
+  <section aria-labelledby="h4s">
+    <h2 id="h4s">④ 図書カード精算の合算</h2>
+    <div class="thead" style="grid-template-columns:76px 1fr" aria-hidden="true"><span>端末</span><span>金額</span></div>
+    <div class="srow">
+      <label class="lab" for="card1">端末1</label>
+      <input type="text" id="card1" inputmode="numeric" pattern="[0-9]*" autocomplete="off" aria-label="端末1の金額（円）" />
+    </div>
+    <div class="srow">
+      <label class="lab" for="card2">端末2</label>
+      <input type="text" id="card2" inputmode="numeric" pattern="[0-9]*" autocomplete="off" aria-label="端末2の金額（円）" />
+    </div>
+    <div class="srow">
+      <label class="lab" for="card3">端末3</label>
+      <input type="text" id="card3" inputmode="numeric" pattern="[0-9]*" autocomplete="off" aria-label="端末3の金額（円）" />
+    </div>
+    <div class="card">
+      <div class="line total"><span class="k">図書カード 合計</span><span class="v" id="cardTotal">0円</span></div>
+    </div>
+  </section>
+
+  <button type="button" class="clear-btn" id="clearBtn">すべてクリア</button>
+</main>
+
+<div class="scrim" id="scrim" role="dialog" aria-modal="true" aria-labelledby="confirmText">
+  <div class="sheet">
+    <p id="confirmText">入力した数字をすべて消します。よろしいですか？</p>
+    <div class="row">
+      <button type="button" id="cancelBtn">キャンセル</button>
+      <button type="button" class="danger" id="confirmBtn">クリアする</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var DENOMS = [10000,5000,2000,1000,500,100,50,10,5,1];
+
+  function yen(n){ return n.toLocaleString('ja-JP') + '円'; }
+  function num(n){ return n.toLocaleString('ja-JP'); }
+  function parseVal(el){
+    if(!el) return 0;
+    var v = String(el.value).replace(/[^0-9]/g,'');
+    if(v === '') return 0;
+    var n = parseInt(v, 10);
+    return isNaN(n) ? 0 : n;
+  }
+  function hasVal(el){ return el && String(el.value).replace(/[^0-9]/g,'') !== ''; }
+
+  // Build rows for ① and ②
+  var rows1 = document.getElementById('rows1');
+  var rows2 = document.getElementById('rows2');
+  DENOMS.forEach(function(d, i){
+    var label = d.toLocaleString('ja-JP') + '円';
+
+    var r1 = document.createElement('div');
+    r1.className = 'trow cols1';
+    r1.innerHTML =
+      '<span class="denom">' + label + '</span>' +
+      '<input type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" data-f1="' + i + '" aria-label="' + label + ' ふるいち1の枚数" />' +
+      '<input type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" data-f2="' + i + '" aria-label="' + label + ' ふるいち2の枚数" />' +
+      '<span class="calc"><span class="count" data-sum12count="' + i + '">0</span><span class="amount" data-sum12amount="' + i + '">0円</span></span>';
+    rows1.appendChild(r1);
+
+    var r2 = document.createElement('div');
+    r2.className = 'trow cols2';
+    r2.innerHTML =
+      '<span class="denom">' + label + '</span>' +
+      '<span class="carry" data-carry="' + i + '">0</span>' +
+      '<input type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" data-tsu="' + i + '" aria-label="' + label + ' 蔦屋の枚数" />' +
+      '<span class="calc"><span class="count" data-allcount="' + i + '">0</span><span class="amount" data-allamount="' + i + '">0円</span></span>';
+    rows2.appendChild(r2);
+  });
+
+  function q(attr, i){ return document.querySelector('[' + attr + '="' + i + '"]'); }
+
+  var nyukin = document.getElementById('nyukin');
+  var shukkin = document.getElementById('shukkin');
+
+  function recalc(){
+    var f1Total = 0, f2Total = 0, tsuTotal = 0;
+    var sum12 = [];
+    DENOMS.forEach(function(d, i){
+      var c1 = parseVal(q('data-f1', i));
+      var c2 = parseVal(q('data-f2', i));
+      var s = c1 + c2;
+      sum12.push(s);
+      f1Total += c1 * d;
+      f2Total += c2 * d;
+      q('data-sum12count', i).textContent = num(s);
+      q('data-sum12amount', i).textContent = yen(s * d);
+      q('data-carry', i).textContent = num(s);
+    });
+    var tb = f1Total + f2Total;
+
+    DENOMS.forEach(function(d, i){
+      var ct = parseVal(q('data-tsu', i));
+      var all = sum12[i] + ct;
+      tsuTotal += ct * d;
+      q('data-allcount', i).textContent = num(all);
+      q('data-allamount', i).textContent = yen(all * d);
+    });
+
+    document.getElementById('f1Total').textContent = yen(f1Total);
+    document.getElementById('f2Total').textContent = yen(f2Total);
+    document.getElementById('tbTotal').textContent = yen(tb);
+    document.getElementById('tbTotal2').textContent = yen(tb);
+    document.getElementById('tbTotal3').textContent = yen(tb);
+    document.getElementById('tsuTotal').textContent = yen(tsuTotal);
+    document.getElementById('afterTotal').textContent = yen(tsuTotal + tb);
+
+    // ③
+    var sagaku = parseVal(nyukin) - parseVal(shukkin);
+    document.getElementById('sagaku').textContent = yen(sagaku);
+    var judgeEl = document.getElementById('judge');
+    var judgeLine = document.getElementById('judgeLine');
+    if(!hasVal(nyukin) && !hasVal(shukkin)){
+      judgeEl.textContent = '―';
+      judgeLine.classList.remove('ng');
+    } else if(sagaku === tb){
+      judgeEl.textContent = '一致';
+      judgeLine.classList.remove('ng');
+    } else {
+      judgeEl.textContent = '不一致';
+      judgeLine.classList.add('ng');
+    }
+
+    // ④
+    var cardTotal = parseVal(document.getElementById('card1'))
+                  + parseVal(document.getElementById('card2'))
+                  + parseVal(document.getElementById('card3'));
+    document.getElementById('cardTotal').textContent = yen(cardTotal);
+  }
+
+  document.addEventListener('input', function(e){
+    if(e.target && e.target.tagName === 'INPUT') recalc();
+  });
+  document.addEventListener('focus', function(e){
+    if(e.target && e.target.tagName === 'INPUT' && e.target.select) e.target.select();
+  }, true);
+
+  // Clear with in-page confirmation (alert/confirm are unavailable in the shell)
+  var scrim = document.getElementById('scrim');
+  document.getElementById('clearBtn').addEventListener('click', function(){ scrim.classList.add('open'); });
+  document.getElementById('cancelBtn').addEventListener('click', function(){ scrim.classList.remove('open'); });
+  scrim.addEventListener('click', function(e){ if(e.target === scrim) scrim.classList.remove('open'); });
+  document.getElementById('confirmBtn').addEventListener('click', function(){
+    var inputs = document.querySelectorAll('input[type="text"]');
+    for(var i = 0; i < inputs.length; i++) inputs[i].value = '';
+    scrim.classList.remove('open');
+    recalc();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+
+  recalc();
+})();
+</script>
+</body>
+</html>
