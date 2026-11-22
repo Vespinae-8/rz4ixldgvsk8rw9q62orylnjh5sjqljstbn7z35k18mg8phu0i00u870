@@ -1,0 +1,521 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="color-scheme" content="light dark" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="レジ締め計算台紙" />
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+<meta name="theme-color" content="#121417" media="(prefers-color-scheme: dark)" />
+<link rel="icon" href="data:," />
+<title>レジ締め計算台紙（リンク版）</title>
+<style>
+  :root{
+    --bg:#ffffff;
+    --text:#17181a;
+    --sub:#6d6d74;
+    --green:#0b7a63;
+    --green-strong:#0b7a63;
+    --red:#d92d20;
+    --card:#f1f1f6;
+    --input-bg:#f1f1f6;
+    --input-border:#d7d7de;
+    --line:#e3e3e9;
+    --btn-bg:#f1f1f6;
+    --overlay:rgba(20,20,25,.45);
+    --done-bg:rgba(11,122,99,.07);
+    --done-input:rgba(11,122,99,.10);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#121417;
+      --text:#f2f2f4;
+      --sub:#a7a7ae;
+      --green:#2fbf9f;
+      --green-strong:#2fbf9f;
+      --red:#ff6b5e;
+      --card:#1e2126;
+      --input-bg:#23262c;
+      --input-border:#3a3e46;
+      --line:#2c3038;
+      --btn-bg:#23262c;
+      --overlay:rgba(0,0,0,.6);
+      --done-bg:rgba(47,191,159,.09);
+      --done-input:rgba(47,191,159,.13);
+    }
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0;background:var(--bg);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic UI",sans-serif;
+    font-variant-numeric:tabular-nums;
+  }
+  main{
+    max-width:640px;margin:0 auto;
+    /* bottom padding leaves room for the fixed total bar */
+    padding:12px 14px calc(104px + env(safe-area-inset-bottom));
+  }
+  h1{font-size:21px;line-height:1.3;font-weight:800;margin:2px 0 2px;letter-spacing:.01em}
+  .subtitle{color:var(--sub);font-size:13px;line-height:1.45;margin:0}
+  section{margin-top:16px}
+  section:first-of-type{margin-top:10px}
+  h2{
+    color:var(--green);font-size:16px;font-weight:800;margin:0 0 6px;line-height:1.4;
+    display:flex;align-items:baseline;gap:8px;
+  }
+  .prog{
+    margin-left:auto;font-size:12px;font-weight:600;color:var(--sub);
+    white-space:nowrap;letter-spacing:.02em;
+  }
+  .prog.done{
+    color:var(--green-strong);font-weight:800;
+    background:var(--done-input);border-radius:999px;padding:2px 9px;
+  }
+
+  /* ---- tables ---- */
+  .thead,.trow{display:grid;align-items:center;column-gap:8px}
+  .thead{
+    color:var(--sub);font-size:12px;padding:0 0 4px;
+    border-bottom:2px solid var(--line);
+  }
+  .thead span{text-align:right}
+  .thead span:first-child{text-align:left}
+  .trow{padding:3px 0;border-bottom:1px solid var(--line)}
+  .trow.done{background:var(--done-bg)}
+  .denom{font-size:15px;font-weight:700;line-height:1.25;word-break:break-all}
+  .denom .chk{display:none;color:var(--green-strong);font-weight:800;margin-right:2px}
+  .trow.done .denom .chk{display:inline}
+  .calc{text-align:right}
+  .calc .count{display:block;font-size:17px;font-weight:800;line-height:1.2}
+  .calc .amount{display:block;font-size:11px;color:var(--sub);margin-top:1px}
+  .carry{text-align:right;font-size:17px;font-weight:800;padding-right:2px}
+
+  .cols1{grid-template-columns:52px minmax(0,1fr) minmax(0,1fr) 54px}
+  .cols2{grid-template-columns:52px 38px minmax(0,1fr) 54px}
+
+  /* ---- input cell with "0" quick button ---- */
+  .cell{display:flex;align-items:stretch;gap:4px;min-width:0}
+  .cell input{flex:1 1 auto;min-width:0}
+  .zero{
+    flex:0 0 26px;width:26px;min-height:44px;
+    background:var(--btn-bg);border:1px solid var(--input-border);border-radius:8px;
+    font:inherit;font-size:13px;font-weight:700;color:var(--sub);
+    cursor:pointer;padding:0;
+  }
+  .zero:active{opacity:.65}
+  .cell.done .zero{color:var(--green-strong);border-color:var(--green)}
+
+  input[type="text"]{
+    width:100%;min-height:44px;
+    background:var(--input-bg);border:1px solid var(--input-border);
+    border-radius:9px;
+    font:inherit;font-size:16px;font-weight:600;color:var(--text);
+    text-align:center;padding:4px;outline:none;
+    appearance:none;-webkit-appearance:none;
+  }
+  input[type="text"]:focus{border-color:var(--green);box-shadow:0 0 0 2px color-mix(in srgb, var(--green) 25%, transparent)}
+  input[type="text"].done{
+    border-color:var(--green);
+    background:var(--done-input);
+  }
+
+  /* ---- summary cards ---- */
+  .card{
+    background:var(--card);border-radius:12px;
+    padding:8px 12px;margin-top:8px;
+  }
+  .card .line{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:2px 0}
+  .card .line[hidden]{display:none}
+  .card .line .k{font-size:14px}
+  .card .line .v{font-size:15px;font-weight:600;text-align:right;white-space:nowrap}
+  .card .line.total .k{font-size:16px;font-weight:800;color:var(--green-strong)}
+  .card .line.total .v{font-size:20px;font-weight:800;color:var(--green-strong)}
+  .card .line.judge .v{font-size:19px;font-weight:800;color:var(--green-strong)}
+  .card .line.judge.ng .k,.card .line.judge.ng .v{color:var(--red)}
+  .card .line.diffline .k{font-size:14px;font-weight:700;color:var(--red)}
+  .card .line.diffline .v{font-size:16px;font-weight:800;color:var(--red)}
+
+  /* ---- sections 3 & 4 simple rows ---- */
+  .srow{display:grid;grid-template-columns:64px minmax(0,1fr);align-items:center;column-gap:10px;padding:3px 0;border-bottom:1px solid var(--line)}
+  .srow.done{background:var(--done-bg)}
+  .srow .lab{font-size:16px;font-weight:700}
+  .srow .lab .chk{display:none;color:var(--green-strong);font-weight:800;margin-right:2px}
+  .srow.done .lab .chk{display:inline}
+  .srow > input{text-align:right;padding-right:12px}
+  .srow .cell input{text-align:right;padding-right:12px}
+
+  /* ---- fixed total bar ---- */
+  .totalbar{
+    position:fixed;left:0;right:0;bottom:0;z-index:8;
+    background:var(--card);
+    border-top:1px solid var(--line);
+    box-shadow:0 -2px 10px rgba(0,0,0,.06);
+  }
+  .totalbar-inner{
+    max-width:640px;margin:0 auto;
+    display:flex;justify-content:space-between;align-items:center;gap:16px;
+    padding:7px 16px calc(7px + env(safe-area-inset-bottom));
+  }
+  .tb-item{display:flex;flex-direction:column;gap:0;min-width:0}
+  .tb-item.right{text-align:right;align-items:flex-end}
+  .tb-k{font-size:11px;color:var(--sub);line-height:1.3;white-space:nowrap}
+  .tb-v{font-size:17px;font-weight:800;line-height:1.25;white-space:nowrap}
+  .tb-v.strong{font-size:19px;color:var(--green-strong)}
+
+  /* ---- clear button & confirm ---- */
+  .clear-btn{
+    width:100%;min-height:48px;margin-top:18px;
+    background:var(--btn-bg);color:var(--text);
+    border:1px solid var(--input-border);border-radius:12px;
+    font:inherit;font-size:15px;font-weight:600;cursor:pointer;
+  }
+  .clear-btn:active{opacity:.7}
+  .scrim{
+    position:fixed;inset:0;background:var(--overlay);
+    display:none;align-items:flex-end;justify-content:center;z-index:10;
+  }
+  .scrim.open{display:flex}
+  .sheet{
+    background:var(--bg);width:100%;max-width:640px;
+    border-radius:16px 16px 0 0;
+    padding:22px 20px calc(20px + env(safe-area-inset-bottom));
+  }
+  .sheet p{margin:0 0 18px;font-size:16px;line-height:1.6}
+  .sheet .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .sheet button{
+    min-height:52px;border-radius:10px;font:inherit;font-size:16px;font-weight:700;cursor:pointer;
+    border:1px solid var(--input-border);background:var(--btn-bg);color:var(--text);
+  }
+  .sheet button.danger{background:var(--red);border-color:var(--red);color:#fff}
+  @media (min-width:560px){
+    h1{font-size:24px}
+    h2{font-size:18px}
+    .cols1{grid-template-columns:72px 1fr 1fr 68px}
+    .cols2{grid-template-columns:72px 48px 1fr 68px}
+    .denom{font-size:17px}
+    main{padding-left:18px;padding-right:18px}
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>レジ締め計算台紙</h1>
+  <p class="subtitle">ふるいち1・2を合算 → 蔦屋に入金して蔦屋を締め</p>
+
+  <!-- ① -->
+  <section aria-labelledby="h1s">
+    <h2 id="h1s"><span>① ふるいち1と2を合算</span><span class="prog" id="prog1">確認済み 0/10</span></h2>
+    <div class="thead cols1" aria-hidden="true"><span>金種</span><span>ふるいち1</span><span>ふるいち2</span><span>1+2合算</span></div>
+    <div id="rows1"></div>
+    <div class="card">
+      <div class="line"><span class="k">ふるいち1 総額</span><span class="v" id="f1Total">0円</span></div>
+      <div class="line"><span class="k">ふるいち2 総額</span><span class="v" id="f2Total">0円</span></div>
+      <div class="line total"><span class="k">TB売上金</span><span class="v" id="tbTotal">0円</span></div>
+    </div>
+  </section>
+
+  <!-- ② -->
+  <section aria-labelledby="h2s">
+    <h2 id="h2s"><span>② 蔦屋に入金して合算</span><span class="prog" id="prog2">確認済み 0/10</span></h2>
+    <div class="thead cols2" aria-hidden="true"><span>金種</span><span>1+2合算</span><span>蔦屋</span><span>全体</span></div>
+    <div id="rows2"></div>
+    <div class="card">
+      <div class="line"><span class="k">TB売上金</span><span class="v" id="tbTotal2">0円</span></div>
+      <div class="line"><span class="k">蔦屋 総額（元から）</span><span class="v" id="tsuTotal">0円</span></div>
+      <div class="line total"><span class="k">蔦屋 入金後の総額</span><span class="v" id="afterTotal">0円</span></div>
+    </div>
+  </section>
+
+  <!-- ③ -->
+  <section aria-labelledby="h3s">
+    <h2 id="h3s">③ 蔦屋レジの入出金チェック</h2>
+    <div class="srow">
+      <label class="lab" for="nyukin">入金</label>
+      <input type="text" id="nyukin" inputmode="numeric" pattern="[0-9]*" autocomplete="off" enterkeyhint="next" aria-label="入金額（円）" />
+    </div>
+    <div class="srow">
+      <label class="lab" for="shukkin">出金</label>
+      <input type="text" id="shukkin" inputmode="numeric" pattern="[0-9]*" autocomplete="off" enterkeyhint="next" aria-label="出金額（円）" />
+    </div>
+    <div class="card">
+      <div class="line"><span class="k">差額（入金−出金）</span><span class="v" id="sagaku">0円</span></div>
+      <div class="line"><span class="k">TB売上金</span><span class="v" id="tbTotal3">0円</span></div>
+      <div class="line total judge" id="judgeLine"><span class="k">判定</span><span class="v" id="judge">―</span></div>
+      <div class="line diffline" id="diffLine" hidden><span class="k">ズレ</span><span class="v" id="diffNote"></span></div>
+    </div>
+  </section>
+
+  <!-- ④ -->
+  <section aria-labelledby="h4s">
+    <h2 id="h4s">④ 図書カード精算の合算</h2>
+    <div class="thead" style="grid-template-columns:64px 1fr" aria-hidden="true"><span>端末</span><span>金額</span></div>
+    <div class="srow" id="srowCard1">
+      <label class="lab" for="card1"><span class="chk" aria-hidden="true">✓</span>端末1</label>
+      <span class="cell"><input type="text" id="card1" inputmode="numeric" pattern="[0-9]*" autocomplete="off" enterkeyhint="next" aria-label="端末1の金額（円）" /><button type="button" class="zero" data-zeroid="card1" aria-label="端末1に0を入力">0</button></span>
+    </div>
+    <div class="srow" id="srowCard2">
+      <label class="lab" for="card2"><span class="chk" aria-hidden="true">✓</span>端末2</label>
+      <span class="cell"><input type="text" id="card2" inputmode="numeric" pattern="[0-9]*" autocomplete="off" enterkeyhint="next" aria-label="端末2の金額（円）" /><button type="button" class="zero" data-zeroid="card2" aria-label="端末2に0を入力">0</button></span>
+    </div>
+    <div class="srow" id="srowCard3">
+      <label class="lab" for="card3"><span class="chk" aria-hidden="true">✓</span>端末3</label>
+      <span class="cell"><input type="text" id="card3" inputmode="numeric" pattern="[0-9]*" autocomplete="off" enterkeyhint="done" aria-label="端末3の金額（円）" /><button type="button" class="zero" data-zeroid="card3" aria-label="端末3に0を入力">0</button></span>
+    </div>
+    <div class="card">
+      <div class="line total"><span class="k">図書カード 合計</span><span class="v" id="cardTotal">0円</span></div>
+    </div>
+  </section>
+
+  <button type="button" class="clear-btn" id="clearBtn">すべてクリア</button>
+</main>
+
+<!-- fixed total bar -->
+<div class="totalbar" role="region" aria-label="合計バー">
+  <div class="totalbar-inner">
+    <div class="tb-item"><span class="tb-k">TB売上金</span><span class="tb-v" id="barTb">0円</span></div>
+    <div class="tb-item right"><span class="tb-k">蔦屋 入金後の総額</span><span class="tb-v strong" id="barAfter">0円</span></div>
+  </div>
+</div>
+
+<div class="scrim" id="scrim" role="dialog" aria-modal="true" aria-labelledby="confirmText">
+  <div class="sheet">
+    <p id="confirmText">入力した数字をすべて消します。よろしいですか？</p>
+    <div class="row">
+      <button type="button" id="cancelBtn">キャンセル</button>
+      <button type="button" class="danger" id="confirmBtn">クリアする</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var DENOMS = [10000,5000,2000,1000,500,100,50,10,5,1];
+
+  function yen(n){ return n.toLocaleString('ja-JP') + '円'; }
+  function num(n){ return n.toLocaleString('ja-JP'); }
+  function parseVal(el){
+    if(!el) return 0;
+    var v = String(el.value).replace(/[^0-9]/g,'');
+    if(v === '') return 0;
+    var n = parseInt(v, 10);
+    return isNaN(n) ? 0 : n;
+  }
+  function hasVal(el){ return !!el && String(el.value).replace(/[^0-9]/g,'') !== ''; }
+
+  function cellHTML(attr, i, label){
+    return '<span class="cell">' +
+      '<input type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" enterkeyhint="next" ' + attr + '="' + i + '" aria-label="' + label + '" />' +
+      '<button type="button" class="zero" data-zerofor="' + attr + '" data-idx="' + i + '" aria-label="' + label + 'に0を入力">0</button>' +
+    '</span>';
+  }
+
+  // Build rows for ① and ②
+  var rows1 = document.getElementById('rows1');
+  var rows2 = document.getElementById('rows2');
+  var rowEls1 = [], rowEls2 = [];
+  DENOMS.forEach(function(d, i){
+    var label = d.toLocaleString('ja-JP') + '円';
+
+    var r1 = document.createElement('div');
+    r1.className = 'trow cols1';
+    r1.innerHTML =
+      '<span class="denom"><span class="chk" aria-hidden="true">✓</span>' + label + '</span>' +
+      cellHTML('data-f1', i, label + ' ふるいち1の枚数') +
+      cellHTML('data-f2', i, label + ' ふるいち2の枚数') +
+      '<span class="calc"><span class="count" data-sum12count="' + i + '">0</span><span class="amount" data-sum12amount="' + i + '">0円</span></span>';
+    rows1.appendChild(r1);
+    rowEls1.push(r1);
+
+    var r2 = document.createElement('div');
+    r2.className = 'trow cols2';
+    r2.innerHTML =
+      '<span class="denom"><span class="chk" aria-hidden="true">✓</span>' + label + '</span>' +
+      '<span class="carry" data-carry="' + i + '">0</span>' +
+      cellHTML('data-tsu', i, label + ' 蔦屋の枚数') +
+      '<span class="calc"><span class="count" data-allcount="' + i + '">0</span><span class="amount" data-allamount="' + i + '">0円</span></span>';
+    rows2.appendChild(r2);
+    rowEls2.push(r2);
+  });
+
+  function q(attr, i){ return document.querySelector('[' + attr + '="' + i + '"]'); }
+
+  var nyukin = document.getElementById('nyukin');
+  var shukkin = document.getElementById('shukkin');
+
+  function markInput(input, done){
+    input.classList.toggle('done', done);
+    var cell = input.parentNode;
+    if(cell && cell.classList && cell.classList.contains('cell')) cell.classList.toggle('done', done);
+  }
+  function setProg(el, n){
+    if(n >= DENOMS.length){
+      el.textContent = '✓ すべて確認済み';
+      el.classList.add('done');
+    } else {
+      el.textContent = '確認済み ' + n + '/' + DENOMS.length;
+      el.classList.remove('done');
+    }
+  }
+
+  function recalc(){
+    var f1Total = 0, f2Total = 0, tsuTotal = 0;
+    var sum12 = [];
+    var doneRows1 = 0;
+    DENOMS.forEach(function(d, i){
+      var f1 = q('data-f1', i), f2 = q('data-f2', i);
+      var c1 = parseVal(f1);
+      var c2 = parseVal(f2);
+      var s = c1 + c2;
+      sum12.push(s);
+      f1Total += c1 * d;
+      f2Total += c2 * d;
+      q('data-sum12count', i).textContent = num(s);
+      q('data-sum12amount', i).textContent = yen(s * d);
+      q('data-carry', i).textContent = num(s);
+      var d1 = hasVal(f1), d2 = hasVal(f2);
+      markInput(f1, d1);
+      markInput(f2, d2);
+      var rowDone = d1 && d2;
+      rowEls1[i].classList.toggle('done', rowDone);
+      if(rowDone) doneRows1++;
+    });
+    var tb = f1Total + f2Total;
+    setProg(document.getElementById('prog1'), doneRows1);
+
+    var doneRows2 = 0;
+    DENOMS.forEach(function(d, i){
+      var tsu = q('data-tsu', i);
+      var ct = parseVal(tsu);
+      var all = sum12[i] + ct;
+      tsuTotal += ct * d;
+      q('data-allcount', i).textContent = num(all);
+      q('data-allamount', i).textContent = yen(all * d);
+      var dt = hasVal(tsu);
+      markInput(tsu, dt);
+      rowEls2[i].classList.toggle('done', dt);
+      if(dt) doneRows2++;
+    });
+    setProg(document.getElementById('prog2'), doneRows2);
+
+    document.getElementById('f1Total').textContent = yen(f1Total);
+    document.getElementById('f2Total').textContent = yen(f2Total);
+    document.getElementById('tbTotal').textContent = yen(tb);
+    document.getElementById('tbTotal2').textContent = yen(tb);
+    document.getElementById('tbTotal3').textContent = yen(tb);
+    document.getElementById('tsuTotal').textContent = yen(tsuTotal);
+    document.getElementById('afterTotal').textContent = yen(tsuTotal + tb);
+    document.getElementById('barTb').textContent = yen(tb);
+    document.getElementById('barAfter').textContent = yen(tsuTotal + tb);
+
+    // ③
+    var sagaku = parseVal(nyukin) - parseVal(shukkin);
+    document.getElementById('sagaku').textContent = yen(sagaku);
+    var judgeEl = document.getElementById('judge');
+    var judgeLine = document.getElementById('judgeLine');
+    var diffLine = document.getElementById('diffLine');
+    var diffNote = document.getElementById('diffNote');
+    if(!hasVal(nyukin) && !hasVal(shukkin)){
+      judgeEl.textContent = '―';
+      judgeLine.classList.remove('ng');
+      diffLine.hidden = true;
+    } else if(sagaku === tb){
+      judgeEl.textContent = '一致';
+      judgeLine.classList.remove('ng');
+      diffLine.hidden = true;
+    } else {
+      judgeEl.textContent = '不一致';
+      judgeLine.classList.add('ng');
+      var diff = sagaku - tb;
+      diffNote.textContent = diff < 0 ? ('あと' + yen(-diff) + '不足') : (yen(diff) + '多い');
+      diffLine.hidden = false;
+    }
+
+    // ④
+    var cardTotal = 0;
+    ['card1','card2','card3'].forEach(function(id){
+      var input = document.getElementById(id);
+      cardTotal += parseVal(input);
+      var done = hasVal(input);
+      markInput(input, done);
+      var srow = document.getElementById('srow' + id.charAt(0).toUpperCase() + id.slice(1));
+      if(srow) srow.classList.toggle('done', done);
+    });
+    document.getElementById('cardTotal').textContent = yen(cardTotal);
+  }
+
+  // ---- focus advance (improvement 4) ----
+  function allInputs(){
+    return Array.prototype.slice.call(document.querySelectorAll('input[type="text"]'));
+  }
+  function focusNext(el){
+    var list = allInputs();
+    var i = list.indexOf(el);
+    if(i >= 0 && i < list.length - 1) list[i + 1].focus();
+  }
+  document.addEventListener('keydown', function(e){
+    if(e.key === 'Enter' && e.target && e.target.tagName === 'INPUT'){
+      e.preventDefault();
+      focusNext(e.target);
+    }
+  });
+
+  // ---- "0" quick buttons (improvement 2) ----
+  document.addEventListener('click', function(e){
+    var btn = e.target;
+    if(!btn || !btn.classList || !btn.classList.contains('zero')) return;
+    var input = null;
+    if(btn.getAttribute('data-zerofor')){
+      input = q(btn.getAttribute('data-zerofor'), btn.getAttribute('data-idx'));
+    } else if(btn.getAttribute('data-zeroid')){
+      input = document.getElementById(btn.getAttribute('data-zeroid'));
+    }
+    if(!input) return;
+    input.value = '0';
+    recalc();
+    focusNext(input);
+  });
+
+  document.addEventListener('input', function(e){
+    if(e.target && e.target.tagName === 'INPUT') recalc();
+  });
+  document.addEventListener('focus', function(e){
+    if(e.target && e.target.tagName === 'INPUT' && e.target.select) e.target.select();
+  }, true);
+
+  // Clear with in-page confirmation (alert/confirm are unavailable in the shell)
+  var scrim = document.getElementById('scrim');
+  document.getElementById('clearBtn').addEventListener('click', function(){ scrim.classList.add('open'); });
+  document.getElementById('cancelBtn').addEventListener('click', function(){ scrim.classList.remove('open'); });
+  scrim.addEventListener('click', function(e){ if(e.target === scrim) scrim.classList.remove('open'); });
+  document.getElementById('confirmBtn').addEventListener('click', function(){
+    var inputs = document.querySelectorAll('input[type="text"]');
+    for(var i = 0; i < inputs.length; i++) inputs[i].value = '';
+    scrim.classList.remove('open');
+    recalc();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+
+  // ---- Wake Lock (improvement 5) ----
+  var wakeLock = null;
+  function requestWakeLock(){
+    if(!('wakeLock' in navigator)) return;
+    try {
+      navigator.wakeLock.request('screen').then(function(lock){
+        wakeLock = lock;
+      }).catch(function(){ /* unsupported or not allowed: do nothing */ });
+    } catch(err) { /* do nothing */ }
+  }
+  requestWakeLock();
+  document.addEventListener('visibilitychange', function(){
+    if(document.visibilityState === 'visible') requestWakeLock();
+  });
+
+  recalc();
+})();
+</script>
+</body>
+</html>
